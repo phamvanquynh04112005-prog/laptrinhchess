@@ -16,6 +16,9 @@ const config = {
 };
 
 let pool = null;
+const useManagedDatabase = Boolean(
+  process.env.MYSQLHOST || process.env.MYSQLDATABASE,
+);
 
 const connectDB = async () => {
   try {
@@ -38,7 +41,13 @@ const connectDB = async () => {
 
 const initDatabase = async () => {
   try {
-    const tempPool = mysql.createPool({
+    if (useManagedDatabase) {
+      console.log(
+        `Using managed database '${config.database}', skipping CREATE DATABASE`,
+      );
+      await connectDB();
+    } else {
+      const tempPool = mysql.createPool({
       host: config.host,
       user: config.user,
       password: config.password,
@@ -48,7 +57,8 @@ const initDatabase = async () => {
     console.log("📝 Creating database if not exists...");
     await tempPool.query(`CREATE DATABASE IF NOT EXISTS ${config.database}`);
     console.log(`✅ Database '${config.database}' ready`);
-    await tempPool.end();
+      await tempPool.end();
+    }
 
     await connectDB();
 
