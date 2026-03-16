@@ -57,6 +57,9 @@ exports.register = async (req, res) => {
         username: user.username,
         email: user.email,
         rating: user.rating,
+        avatar: user.avatar,
+        country: user.country,
+        created_at: user.created_at,
       },
     });
   } catch (error) {
@@ -107,6 +110,9 @@ exports.login = async (req, res) => {
         rating: user.rating,
         gamesPlayed: user.games_played,
         gamesWon: user.games_won,
+        avatar: user.avatar,
+        country: user.country,
+        created_at: user.created_at,
       },
     });
   } catch (error) {
@@ -121,35 +127,37 @@ exports.login = async (req, res) => {
 exports.getProfile = async (req, res) => {
   try {
     const profile = await User.getProfile(req.user.id);
-
     if (!profile) {
       return res.status(404).json({
         success: false,
         message: "Không tìm thấy người dùng",
       });
     }
-
-    res.json({
-      success: true,
-      profile,
-    });
+    res.json({ success: true, profile });
   } catch (error) {
     console.error("Get profile error:", error);
-    res.status(500).json({
-      success: false,
-      message: "Lỗi server",
-    });
+    res.status(500).json({ success: false, message: "Lỗi server" });
   }
 };
 
 exports.updateProfile = async (req, res) => {
   try {
-    const { username, email, password } = req.body;
+    const { username, email, password, avatar, country } = req.body;
     const updateData = {};
-
-    if (username) updateData.username = username;
-    if (email) updateData.email = email;
-    if (password) updateData.password = password;
+    if (username !== undefined) {
+      const existing = await User.findByUsername(username);
+      if (existing && existing.id !== req.user.id) {
+        return res.status(400).json({
+          success: false,
+          message: "Tên người dùng đã tồn tại",
+        });
+      }
+      updateData.username = username;
+    }
+    if (email !== undefined) updateData.email = email;
+    if (password !== undefined) updateData.password = password;
+    if (avatar !== undefined) updateData.avatar = avatar;
+    if (country !== undefined) updateData.country = country;
 
     if (Object.keys(updateData).length === 0) {
       return res.status(400).json({
@@ -158,17 +166,8 @@ exports.updateProfile = async (req, res) => {
       });
     }
 
-    const updated = await User.updateProfile(req.user.id, updateData);
-
-    if (!updated) {
-      return res.status(400).json({
-        success: false,
-        message: "Không thể cập nhật profile",
-      });
-    }
-
+    await User.updateProfile(req.user.id, updateData);
     const profile = await User.getProfile(req.user.id);
-
     res.json({
       success: true,
       message: "Cập nhật profile thành công",
@@ -176,18 +175,43 @@ exports.updateProfile = async (req, res) => {
     });
   } catch (error) {
     console.error("Update profile error:", error);
-
     if (error.code === "ER_DUP_ENTRY") {
       return res.status(400).json({
         success: false,
         message: "Username hoặc email đã tồn tại",
       });
     }
+    res.status(500).json({ success: false, message: "Lỗi server" });
+  }
+};
 
-    res.status(500).json({
-      success: false,
-      message: "Lỗi server",
-    });
+exports.changePassword = async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({
+        success: false,
+        message: "Vui lòng nhập mật khẩu hiện tại và mật khẩu mới",
+      });
+    }
+    if (newPassword.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: "Mật khẩu mới phải có ít nhất 6 ký tự",
+      });
+    }
+    const result = await User.changePassword(
+      req.user.id,
+      currentPassword,
+      newPassword
+    );
+    if (!result.success) {
+      return res.status(400).json(result);
+    }
+    res.json({ success: true, message: "Đổi mật khẩu thành công" });
+  } catch (error) {
+    console.error("Change password error:", error);
+    res.status(500).json({ success: false, message: "Lỗi server" });
   }
 };
 

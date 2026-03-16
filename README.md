@@ -1,70 +1,85 @@
-# Getting Started with Create React App
+# Chess Master
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+Ung dung co frontend React o thu muc goc va backend Express + Socket.IO + MySQL trong `Backend/`.
 
-## Available Scripts
+## Cau truc
 
-In the project directory, you can run:
+- Frontend: React Create React App
+- Backend: Express, Socket.IO, MySQL
+- Deploy khuyen nghi:
+  - Frontend: Vercel
+  - Backend: Render, Railway, VPS, hoac bat ky dich vu nao chay duoc Node server lau dai
 
-### `npm start`
+## Chay local
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+Frontend:
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+```bash
+npm install
+npm start
+```
 
-### `npm test`
+Backend:
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+```bash
+cd Backend
+npm install
+copy .env.example .env
+npm run dev
+```
 
-### `npm run build`
+## Bien moi truong frontend
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+Tao file `.env.local` o thu muc goc neu can:
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+```env
+REACT_APP_API_URL=http://localhost:5000/api
+REACT_APP_SOCKET_URL=http://localhost:5000
+```
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+Neu khong khai bao, frontend se tu fallback ve `localhost:5000` khi chay local/LAN.
 
-### `npm run eject`
+## Deploy frontend len Vercel
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+Repo da co san:
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+- `vercel.json` de build ra thu muc `build`
+- rewrite moi route ve `index.html` cho React Router
+- `.vercelignore` de khong upload `Backend/` va `node_modules/`
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+Sau khi backend da co URL public, them cac env sau trong Vercel:
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+```env
+REACT_APP_API_URL=https://your-backend-service.example.com/api
+REACT_APP_SOCKET_URL=https://your-backend-service.example.com
+```
 
-## Learn More
+## Deploy backend
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+Backend hien tai khong phu hop de deploy truc tiep len Vercel vi:
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+- can Node server chay lien tuc
+- dung Socket.IO real-time
+- dung ket noi MySQL stateful
 
-### Code Splitting
+Can deploy `Backend/` sang Render, Railway, VPS, hoac dich vu tuong tu. Sau do cap nhat:
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+- `CORS_ORIGIN` = domain frontend Vercel
+- thong tin MySQL (`DB_HOST`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`, `DB_PORT`)
+- `JWT_SECRET`
 
-### Analyzing the Bundle Size
+## Push len GitHub
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+Repo da duoc cau hinh de bo qua:
 
-### Making a Progressive Web App
+- `node_modules/`
+- `Backend/node_modules/`
+- `.env`
+- `Backend/.env`
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
+Neu cac file nay da tung bi track, can bo khoi git index truoc khi commit:
 
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+```bash
+git rm -r --cached node_modules Backend/node_modules
+git rm --cached Backend/.env
+```

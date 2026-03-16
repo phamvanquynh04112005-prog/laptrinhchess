@@ -13,7 +13,7 @@ class Game {
       moveHistory,
     } = gameData;
 
-    result = await query(
+    const insertResult = await query(
       `INSERT INTO games (user_id, opponent_type, difficulty, result, moves_count, time_spent, fen_position, move_history) 
        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       [
@@ -28,7 +28,7 @@ class Game {
       ]
     );
 
-    return result.insertId;
+    return insertResult.insertId;
   }
 
   static async findByUserId(userId, limit = 10) {
@@ -66,6 +66,48 @@ class Game {
         avg_time: 0,
       }
     );
+  }
+
+  static async getOnlineStats(userId) {
+    const result = await query(
+      `SELECT 
+        COUNT(*) as total,
+        SUM(CASE WHEN winner_id = ? THEN 1 ELSE 0 END) as wins,
+        SUM(CASE WHEN winner_id IS NOT NULL AND winner_id != ? THEN 1 ELSE 0 END) as losses,
+        SUM(CASE WHEN result = 'draw' OR (result IS NOT NULL AND winner_id IS NULL) THEN 1 ELSE 0 END) as draws
+       FROM online_games 
+       WHERE (white_player_id = ? OR black_player_id = ?) AND status = 'finished'`,
+      [userId, userId, userId, userId]
+    );
+    return result[0] || { total: 0, wins: 0, losses: 0, draws: 0 };
+  }
+
+  static async getCombinedHistory(userId, limit = 30) {
+    const aiGames = await query(
+      `SELECT id, user_id, opponent_type, difficulty, result, moves_count, time_spent, created_at, 'ai' as game_type
+       FROM games WHERE user_id = ? ORDER BY created_at DESC LIMIT ?`,
+      [userId, limit]
+    );
+    const onlineGames = await query(
+      `SELECT g.id, g.white_player_id, g.black_player_id, g.result, g.winner_id, g.started_at as created_at, 'online' as game_type,
+        w.username as white_username, b.username as black_username
+       FROM online_games g
+       JOIN users w ON g.white_player_id = w.id
+       JOIN users b ON g.black_player_id = b.id
+       WHERE (g.white_player_id = ? OR g.black_player_id = ?) AND g.status = 'finished'
+       ORDER BY g.finished_at DESC LIMIT ?`,
+      [userId, userId, limit]
+    );
+    const list = [
+      ...aiGames.map((g) => ({ ...g, opponent: "AI", opponent_type: "AI", difficulty: g.difficulty })),
+      ...onlineGames.map((g) => ({
+        ...g,
+        opponent: g.white_player_id === userId ? g.black_username : g.white_username,
+        opponent_type: "online",
+        result: g.winner_id === userId ? "win" : g.winner_id ? "loss" : "draw",
+      })),
+    ].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    return list.slice(0, limit);
   }
 
   // Lấy lịch sử chi tiết với phân tích

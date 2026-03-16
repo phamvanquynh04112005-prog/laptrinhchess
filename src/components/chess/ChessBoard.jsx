@@ -55,9 +55,8 @@ const TIME_CONTROLS = [
 ];
 
 export default function ChessBoard() {
-  // Tạo gameId duy nhất cho mỗi phiên bản của ChessBoard
   const [gameId] = useState(
-    `chess-ai-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+    `chess-ai-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
   );
   const [board, setBoard] = useState(initializeBoard());
   const [selectedSquare, setSelectedSquare] = useState(null);
@@ -79,9 +78,9 @@ export default function ChessBoard() {
   useEffect(() => {
     resetGameState(gameId);
     resetGame();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Timer effect
   useEffect(() => {
     if (
       !gameStarted ||
@@ -118,6 +117,7 @@ export default function ChessBoard() {
     };
   }, [currentPlayer, gameStarted, gameStatus]);
 
+  // Sử dụng useCallback để tránh dependency warning
   const checkGameStatus = useCallback(
     (boardState) => {
       if (isCheckmate(boardState, true, gameId)) {
@@ -144,9 +144,10 @@ export default function ChessBoard() {
       }
       return false;
     },
-    [gameId]
+    [gameId],
   );
 
+  // AI move effect
   useEffect(() => {
     if (currentPlayer === "black" && gameStatus === "playing" && gameStarted) {
       const timer = setTimeout(() => {
@@ -158,7 +159,7 @@ export default function ChessBoard() {
             aiMove.fromCol,
             aiMove.toRow,
             aiMove.toCol,
-            gameId
+            gameId,
           );
           setBoard(newBoard);
           setLastMove({
@@ -225,7 +226,7 @@ export default function ChessBoard() {
           selectedSquare.col,
           row,
           col,
-          gameId
+          gameId,
         );
         setBoard(newBoard);
         setLastMove({
@@ -262,7 +263,6 @@ export default function ChessBoard() {
     }
   };
 
-  // DRAG AND DROP HANDLERS
   const handleDragStart = (e, row, col) => {
     if (
       !gameStarted ||
@@ -307,7 +307,7 @@ export default function ChessBoard() {
         draggedPiece.col,
         row,
         col,
-        gameId
+        gameId,
       );
       setBoard(newBoard);
       setLastMove({
@@ -344,7 +344,7 @@ export default function ChessBoard() {
     setValidMoves([]);
   };
 
-  const resetGame = () => {
+  const resetGame = useCallback(() => {
     setBoard(initializeBoard());
     setSelectedSquare(null);
     setValidMoves([]);
@@ -357,7 +357,7 @@ export default function ChessBoard() {
     setLastMove(null);
     setDraggedPiece(null);
     resetGameState(gameId);
-  };
+  }, [gameId, timeControl]);
 
   const startGame = () => {
     setWhiteTime(timeControl);
@@ -790,15 +790,15 @@ export default function ChessBoard() {
                             border: highlighted
                               ? "4px solid #10b981"
                               : selected
-                              ? "4px solid #60a5fa"
-                              : isLastMoveSquare
-                              ? "4px solid #f59e0b"
-                              : "none",
+                                ? "4px solid #60a5fa"
+                                : isLastMoveSquare
+                                  ? "4px solid #f59e0b"
+                                  : "none",
                             boxShadow: selected
                               ? "inset 0 0 20px rgba(96, 165, 250, 0.6)"
                               : isLastMoveSquare
-                              ? "inset 0 0 20px rgba(245, 158, 11, 0.4)"
-                              : "none",
+                                ? "inset 0 0 20px rgba(245, 158, 11, 0.4)"
+                                : "none",
                             "&:hover": {
                               filter:
                                 gameStarted && currentPlayer === "white"
@@ -876,8 +876,8 @@ export default function ChessBoard() {
                   {!gameStarted
                     ? "Nhấn 'Bắt đầu ván cờ' để bắt đầu"
                     : currentPlayer === "white"
-                    ? "Lượt của bạn. Click hoặc kéo thả quân cờ để di chuyển"
-                    : "Đang chờ AI đi..."}
+                      ? "Lượt của bạn. Click hoặc kéo thả quân cờ để di chuyển"
+                      : "Đang chờ AI đi..."}
                 </Typography>
                 {gameStarted && currentPlayer === "white" && (
                   <Typography
@@ -1027,9 +1027,9 @@ export default function ChessBoard() {
                   gameStatus === "timeout-black"
                     ? "linear-gradient(135deg, #10b981 0%, #059669 100%)"
                     : gameStatus === "checkmate-black" ||
-                      gameStatus === "timeout-white"
-                    ? "linear-gradient(135deg, #ef4444 0%, #dc2626 100%)"
-                    : "linear-gradient(135deg, #f59e0b 0%, #d97706 100%)",
+                        gameStatus === "timeout-white"
+                      ? "linear-gradient(135deg, #ef4444 0%, #dc2626 100%)"
+                      : "linear-gradient(135deg, #f59e0b 0%, #d97706 100%)",
                 p: 6,
                 borderRadius: 4,
                 textAlign: "center",
@@ -1057,9 +1057,9 @@ export default function ChessBoard() {
                 gameStatus === "timeout-black"
                   ? "🎉 Bạn thắng!"
                   : gameStatus === "checkmate-black" ||
-                    gameStatus === "timeout-white"
-                  ? "💀 AI thắng!"
-                  : "🤝 Hòa!"}
+                      gameStatus === "timeout-white"
+                    ? "💀 AI thắng!"
+                    : "🤝 Hòa!"}
               </Typography>
               <Typography
                 variant="h6"
@@ -1070,12 +1070,12 @@ export default function ChessBoard() {
                 {gameStatus === "checkmate-white"
                   ? "Tuyệt vời! Bạn đã chiếu hết AI!"
                   : gameStatus === "checkmate-black"
-                  ? "AI đã chiếu hết. Hãy thử lại!"
-                  : gameStatus === "timeout-white"
-                  ? "AI hết thời gian! Bạn thắng!"
-                  : gameStatus === "timeout-black"
-                  ? "Bạn hết thời gian! AI thắng!"
-                  : "Hết nước đi! Ván cờ hòa!"}
+                    ? "AI đã chiếu hết. Hãy thử lại!"
+                    : gameStatus === "timeout-white"
+                      ? "AI hết thời gian! Bạn thắng!"
+                      : gameStatus === "timeout-black"
+                        ? "Bạn hết thời gian! AI thắng!"
+                        : "Hết nước đi! Ván cờ hòa!"}
               </Typography>
               <Button
                 onClick={resetGame}
@@ -1088,9 +1088,9 @@ export default function ChessBoard() {
                     gameStatus === "timeout-black"
                       ? "#10b981"
                       : gameStatus === "checkmate-black" ||
-                        gameStatus === "timeout-white"
-                      ? "#ef4444"
-                      : "#f59e0b",
+                          gameStatus === "timeout-white"
+                        ? "#ef4444"
+                        : "#f59e0b",
                   px: 5,
                   py: 2,
                   fontSize: "1.2rem",

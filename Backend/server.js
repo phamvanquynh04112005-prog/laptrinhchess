@@ -1,95 +1,101 @@
 const express = require("express");
 const cors = require("cors");
+const http = require("http");
+const os = require("os");
+const { Server } = require("socket.io");
+
 require("dotenv").config();
 
-const { initDatabase, checkConnection } = require("./config/database");
-const authRoutes = require("./routes/authRoutes");
-const gameRoutes = require("./routes/gameRoutes");
-
 const app = express();
+const server = http.createServer(app);
 
-// Middleware
-app.use(
-  cors({
-    origin: [
-      "http://localhost:3000",
-      "http://localhost:3001",
-      "http://localhost:3002",
-    ], // Cho phép cả 3 port
-    credentials: true,
-  })
-);
+const corsOrigin = process.env.CORS_ORIGIN
+  ? process.env.CORS_ORIGIN.split(",").map((origin) => origin.trim())
+  : "*";
+
+const corsOptions = {
+  origin: corsOrigin,
+  methods: ["GET", "POST", "PUT", "DELETE"],
+  credentials: true,
+};
+
+const io = new Server(server, {
+  cors: corsOptions,
+  transports: ["websocket", "polling"],
+  pingTimeout: 60000,
+  pingInterval: 25000,
+});
+
+app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Routes
+app.use((req, res, next) => {
+  console.log(`${req.method} ${req.path}`);
+  next();
+});
+
+const authRoutes = require("./routes/authRoutes");
+const gameRoutes = require("./routes/gameRoutes");
+const learningRoutes = require("./routes/learningRoutes");
+const matchmakingRoutes = require("./routes/matchmakingRoutes");
+
 app.use("/api/auth", authRoutes);
 app.use("/api/games", gameRoutes);
+app.use("/api/learning", learningRoutes);
+app.use("/api/matchmaking", matchmakingRoutes);
 
-// Health check với kiểm tra database
-app.get("/api/health", async (req, res) => {
-  try {
-    const dbConnected = await checkConnection();
-    res.json({
-      status: "OK",
-      message: "Server is running",
-      database: dbConnected ? "Connected" : "Disconnected",
-    });
-  } catch (error) {
-    res.status(500).json({
-      status: "ERROR",
-      message: "Server error",
-      error: error.message,
-    });
-  }
+app.get("/", (req, res) => {
+  res.json({ message: "Chess Game API is running", status: "OK" });
 });
 
-// 404 handler
-app.use((req, res) => {
-  res.status(404).json({
-    success: false,
-    message: "Route not found",
-  });
+app.get("/api/health", (req, res) => {
+  res.json({ message: "Chess Game API is running", status: "OK" });
 });
 
-// Error handling
+const setupSocketHandlers = require("./utils/socketHandler");
+setupSocketHandlers(io);
+
+console.log("Socket.IO initialized successfully");
+console.log("Socket.IO setup complete");
+
 app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({
+  console.error("Error:", err);
+  res.status(err.status || 500).json({
     success: false,
-    message: "Internal server error",
-    error: process.env.NODE_ENV === "development" ? err.message : undefined,
+    message: err.message || "Internal server error",
   });
+});
+
+app.use((req, res) => {
+  res.status(404).json({ success: false, message: "Route not found" });
 });
 
 const PORT = process.env.PORT || 5000;
 
-// Initialize database and start server
-const startServer = async () => {
-  try {
-    console.log("🚀 Starting Chess Server...");
-    console.log("📦 Initializing database...");
+server.listen(PORT, "0.0.0.0", () => {
+  console.log(`Server running on port ${PORT}`);
+  console.log(`Local:   http://localhost:${PORT}`);
 
-    await initDatabase();
+  const networkInterfaces = os.networkInterfaces();
 
-    console.log(`✅ Database initialized successfully!`);
-
-    app.listen(PORT, () => {
-      console.log(`🚀 Server running on port ${PORT}`);
-      console.log(`📊 Database: ${process.env.DB_NAME}`);
-      console.log(`🔗 API URL: http://localhost:${PORT}/api`);
-      console.log(`🔗 Health Check: http://localhost:${PORT}/api/health`);
+  Object.keys(networkInterfaces).forEach((interfaceName) => {
+    networkInterfaces[interfaceName].forEach((iface) => {
+      if (iface.family === "IPv4" && !iface.internal) {
+        console.log(`Network: http://${iface.address}:${PORT}`);
+      }
     });
-  } catch (error) {
-    console.error("❌ Failed to start server:", error.message);
-    console.log("\n🔧 TROUBLESHOOTING:");
-    console.log("1. Chạy test-chess-admin.js để kiểm tra kết nối");
-    console.log("2. Kiểm tra SQL Server service đang chạy");
-    console.log("3. Kiểm tra file .env có đúng cấu hình");
-    console.log("4. Kiểm tra quyền của user chess_admin");
+  });
 
-    process.exit(1);
-  }
-};
+  console.log("Socket.IO ready for connections");
+  console.log(`CORS enabled for: ${Array.isArray(corsOrigin) ? corsOrigin.join(", ") : corsOrigin}`);
+});
 
-startServer();
+process.on("SIGTERM", () => {
+  console.log("SIGTERM signal received: closing HTTP server");
+  server.close(() => {
+    console.log("HTTP server closed");
+  });
+});
+
+module.exports = { app, server, io };

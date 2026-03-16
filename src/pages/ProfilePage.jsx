@@ -17,59 +17,160 @@ import {
   Chip,
   LinearProgress,
   CircularProgress,
+  Button,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions,
+  TextField,
+  Alert,
 } from "@mui/material";
-import { motion } from "framer-motion";
 import {
   User,
   Trophy,
   Target,
   TrendingUp,
   Clock,
-  Zap,
   Award,
+  Edit3,
+  Lock,
+  Calendar,
+  Globe,
+  Activity,
+  List,
 } from "lucide-react";
 import Header from "../components/layout/Header";
-import { gameAPI } from "../utils/api";
+import { authAPI, gameAPI, matchmakingAPI } from "../utils/api";
+
+const COUNTRY_FLAGS = {
+  VN: "🇻🇳",
+  US: "🇺🇸",
+  GB: "🇬🇧",
+  JP: "🇯🇵",
+  KR: "🇰🇷",
+  CN: "🇨🇳",
+  IN: "🇮🇳",
+  DE: "🇩🇪",
+  FR: "🇫🇷",
+  RU: "🇷🇺",
+  BR: "🇧🇷",
+  DEFAULT: "🏳️",
+};
+
+const getFlag = (country) => {
+  if (!country) return COUNTRY_FLAGS.DEFAULT;
+  const code = String(country).toUpperCase().slice(0, 2);
+  return COUNTRY_FLAGS[code] || COUNTRY_FLAGS.DEFAULT;
+};
+
+const STATUS_LABEL = {
+  online: { text: "Online", color: "#10b981" },
+  offline: { text: "Offline", color: "#94a3b8" },
+  playing: { text: "Đang chơi", color: "#2563eb" },
+};
 
 const ProfilePage = () => {
-  const [user, setUser] = useState(null);
+  const [profile, setProfile] = useState(null);
   const [stats, setStats] = useState(null);
-  const [history, setHistory] = useState([]);
+  const [ratingHistory, setRatingHistory] = useState([]);
+  const [games, setGames] = useState([]);
   const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const userData = localStorage.getItem("user");
-    if (userData) {
-      setUser(JSON.parse(userData));
-    }
-    loadData();
-  }, []);
+  const [editOpen, setEditOpen] = useState(false);
+  const [passwordOpen, setPasswordOpen] = useState(false);
+  const [editForm, setEditForm] = useState({ username: "", avatar: "", country: "" });
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: "",
+  });
+  const [message, setMessage] = useState({ type: "", text: "" });
 
   const loadData = async () => {
     try {
-      const [statsRes, historyRes] = await Promise.all([
+      const [profileRes, statsRes, historyRes, gamesRes] = await Promise.all([
+        authAPI.getProfile(),
         gameAPI.getStats(),
-        gameAPI.getHistory(),
+        matchmakingAPI.getRatingHistory(30),
+        gameAPI.getCombinedHistory(50),
       ]);
-
+      if (profileRes.success) setProfile(profileRes.profile);
       if (statsRes.success) setStats(statsRes.stats);
-      if (historyRes.success) setHistory(historyRes.games);
-    } catch (error) {
-      console.error("Error loading profile data:", error);
+      if (historyRes.success) setRatingHistory(historyRes.history || []);
+      if (gamesRes.success) setGames(gamesRes.games || []);
+    } catch (e) {
+      console.error(e);
     } finally {
       setLoading(false);
     }
   };
 
-  const formatTime = (seconds) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs < 10 ? "0" : ""}${secs}`;
+  useEffect(() => {
+    const userData = localStorage.getItem("user");
+    if (userData) {
+      const u = JSON.parse(userData);
+      setProfile((p) => p || { ...u, status: "offline" });
+    }
+    loadData();
+  }, []);
+
+  const handleOpenEdit = () => {
+    setEditForm({
+      username: profile?.username || "",
+      avatar: profile?.avatar || "",
+      country: profile?.country || "",
+    });
+    setEditOpen(true);
   };
 
-  const formatDate = (dateString) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString("vi-VN", {
+  const handleSaveProfile = async () => {
+    const res = await authAPI.updateProfile(editForm);
+    if (res.success) {
+      setProfile(res.profile);
+      const u = JSON.parse(localStorage.getItem("user") || "{}");
+      localStorage.setItem("user", JSON.stringify({ ...u, ...res.profile }));
+      setMessage({ type: "success", text: "Đã cập nhật profile." });
+      setEditOpen(false);
+    } else {
+      setMessage({ type: "error", text: res.message || "Cập nhật thất bại." });
+    }
+  };
+
+  const handleOpenPassword = () => {
+    setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
+    setPasswordOpen(true);
+  };
+
+  const handleChangePassword = async () => {
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      setMessage({ type: "error", text: "Mật khẩu xác nhận không khớp." });
+      return;
+    }
+    if (passwordForm.newPassword.length < 6) {
+      setMessage({ type: "error", text: "Mật khẩu mới ít nhất 6 ký tự." });
+      return;
+    }
+    const res = await authAPI.changePassword(
+      passwordForm.currentPassword,
+      passwordForm.newPassword
+    );
+    if (res.success) {
+      setMessage({ type: "success", text: "Đổi mật khẩu thành công." });
+      setPasswordOpen(false);
+    } else {
+      setMessage({ type: "error", text: res.message || "Đổi mật khẩu thất bại." });
+    }
+  };
+
+  const formatTime = (seconds) => {
+    if (!seconds) return "0:00";
+    const m = Math.floor(Number(seconds) / 60);
+    const s = Math.round(Number(seconds) % 60);
+    return `${m}:${s < 10 ? "0" : ""}${s}`;
+  };
+
+  const formatDate = (dateStr) => {
+    return new Date(dateStr).toLocaleDateString("vi-VN", {
       day: "2-digit",
       month: "2-digit",
       year: "numeric",
@@ -78,377 +179,307 @@ const ProfilePage = () => {
     });
   };
 
-  if (loading) {
+  if (loading && !profile) {
     return (
-      <Box
-        sx={{
-          minHeight: "100vh",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          background:
-            "linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%)",
-        }}
-      >
+      <Box sx={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#0c1929" }}>
         <Header />
-        <CircularProgress size={60} sx={{ color: "#3b82f6" }} />
+        <CircularProgress sx={{ color: "#2563eb" }} />
       </Box>
     );
   }
 
-  const winRate =
-    stats && stats.total_games > 0
-      ? ((stats.wins / stats.total_games) * 100).toFixed(1)
-      : 0;
+  const statusInfo = STATUS_LABEL[profile?.status] || STATUS_LABEL.offline;
+  const winRate = stats?.total_games > 0 ? ((stats.wins / stats.total_games) * 100).toFixed(1) : 0;
+  const chartData = [...(ratingHistory || [])].reverse();
+  const maxRating = Math.max(...chartData.map((r) => r.rating_after || 0), 1200);
+  const minRating = Math.min(...chartData.map((r) => r.rating_after || 0), 1200);
 
   return (
-    <Box
-      sx={{
-        minHeight: "100vh",
-        background:
-          "linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%)",
-      }}
-    >
+    <Box sx={{ minHeight: "100vh", background: "linear-gradient(160deg, #0c1929 0%, #132f4c 100%)" }}>
       <Header />
-      <Container maxWidth="xl" sx={{ pt: 4, pb: 8 }}>
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-        >
-          {/* Header */}
-          <Box textAlign="center" mb={4}>
-            <User size={48} color="#3b82f6" style={{ marginBottom: 16 }} />
-            <Typography
-              variant="h2"
-              sx={{
-                fontWeight: "bold",
-                background: "linear-gradient(90deg, #3b82f6 0%, #8b5cf6 100%)",
-                WebkitBackgroundClip: "text",
-                WebkitTextFillColor: "transparent",
-              }}
-            >
-              Hồ Sơ Người Chơi
-            </Typography>
-          </Box>
-
-          {/* User Info Card */}
-          <Card
-            sx={{
-              mb: 4,
-              backgroundColor: "rgba(30, 41, 59, 0.8)",
-              backdropFilter: "blur(10px)",
-              border: "1px solid rgba(59, 130, 246, 0.3)",
-            }}
+      <Container maxWidth="lg" sx={{ py: 3 }}>
+        {message.text && (
+          <Alert
+            severity={message.type}
+            onClose={() => setMessage({ type: "", text: "" })}
+            sx={{ mb: 2 }}
           >
-            <CardContent sx={{ p: 4 }}>
-              <Box display="flex" alignItems="center" gap={3}>
+            {message.text}
+          </Alert>
+        )}
+
+        {/* Header: Avatar, username, country, join date, status */}
+        <Card sx={{ mb: 2, backgroundColor: "#132f4c", border: "1px solid rgba(37,99,235,0.3)", borderRadius: 2 }}>
+          <CardContent sx={{ p: 3 }}>
+            <Box display="flex" flexWrap="wrap" alignItems="center" gap={3}>
+              <Box sx={{ position: "relative" }}>
                 <Avatar
+                  src={profile?.avatar}
                   sx={{
-                    width: 120,
-                    height: 120,
-                    bgcolor: "#3b82f6",
-                    fontSize: "3rem",
-                    border: "4px solid rgba(59, 130, 246, 0.3)",
+                    width: 88,
+                    height: 88,
+                    bgcolor: "#2563eb",
+                    fontSize: "2rem",
+                    border: "3px solid rgba(37,99,235,0.5)",
                   }}
                 >
-                  {user?.username[0].toUpperCase()}
+                  {!profile?.avatar && profile?.username?.[0]?.toUpperCase()}
                 </Avatar>
-                <Box flex={1}>
-                  <Typography variant="h3" color="white" fontWeight="bold">
-                    {user?.username}
-                  </Typography>
-                  <Typography variant="h6" color="#94a3b8" gutterBottom>
-                    {user?.email}
-                  </Typography>
-                  <Box display="flex" gap={2} mt={2}>
-                    <Chip
-                      icon={<Trophy size={16} />}
-                      label={`ELO: ${user?.rating || 1200}`}
-                      sx={{
-                        backgroundColor: "rgba(59, 130, 246, 0.2)",
-                        color: "#3b82f6",
-                        fontWeight: "bold",
-                      }}
-                    />
-                    <Chip
-                      icon={<Target size={16} />}
-                      label={`${stats?.total_games || 0} ván đã chơi`}
-                      sx={{
-                        backgroundColor: "rgba(16, 185, 129, 0.2)",
-                        color: "#10b981",
-                        fontWeight: "bold",
-                      }}
-                    />
-                  </Box>
-                </Box>
-              </Box>
-            </CardContent>
-          </Card>
-
-          {/* Stats Grid */}
-          <Grid container spacing={3} sx={{ mb: 4 }}>
-            <Grid item xs={12} md={3}>
-              <Card
-                sx={{
-                  backgroundColor: "rgba(16, 185, 129, 0.2)",
-                  border: "1px solid rgba(16, 185, 129, 0.3)",
-                }}
-              >
-                <CardContent>
-                  <Box display="flex" alignItems="center" gap={2} mb={2}>
-                    <Trophy size={32} color="#10b981" />
-                    <Typography variant="h6" color="white">
-                      Thắng
-                    </Typography>
-                  </Box>
-                  <Typography variant="h3" color="#10b981" fontWeight="bold">
-                    {stats?.wins || 0}
-                  </Typography>
-                </CardContent>
-              </Card>
-            </Grid>
-
-            <Grid item xs={12} md={3}>
-              <Card
-                sx={{
-                  backgroundColor: "rgba(239, 68, 68, 0.2)",
-                  border: "1px solid rgba(239, 68, 68, 0.3)",
-                }}
-              >
-                <CardContent>
-                  <Box display="flex" alignItems="center" gap={2} mb={2}>
-                    <Target size={32} color="#ef4444" />
-                    <Typography variant="h6" color="white">
-                      Thua
-                    </Typography>
-                  </Box>
-                  <Typography variant="h3" color="#ef4444" fontWeight="bold">
-                    {stats?.losses || 0}
-                  </Typography>
-                </CardContent>
-              </Card>
-            </Grid>
-
-            <Grid item xs={12} md={3}>
-              <Card
-                sx={{
-                  backgroundColor: "rgba(245, 158, 11, 0.2)",
-                  border: "1px solid rgba(245, 158, 11, 0.3)",
-                }}
-              >
-                <CardContent>
-                  <Box display="flex" alignItems="center" gap={2} mb={2}>
-                    <TrendingUp size={32} color="#f59e0b" />
-                    <Typography variant="h6" color="white">
-                      Hòa
-                    </Typography>
-                  </Box>
-                  <Typography variant="h3" color="#f59e0b" fontWeight="bold">
-                    {stats?.draws || 0}
-                  </Typography>
-                </CardContent>
-              </Card>
-            </Grid>
-
-            <Grid item xs={12} md={3}>
-              <Card
-                sx={{
-                  backgroundColor: "rgba(59, 130, 246, 0.2)",
-                  border: "1px solid rgba(59, 130, 246, 0.3)",
-                }}
-              >
-                <CardContent>
-                  <Box display="flex" alignItems="center" gap={2} mb={2}>
-                    <Award size={32} color="#3b82f6" />
-                    <Typography variant="h6" color="white">
-                      Tỷ lệ thắng
-                    </Typography>
-                  </Box>
-                  <Typography variant="h3" color="#3b82f6" fontWeight="bold">
-                    {winRate}%
-                  </Typography>
-                </CardContent>
-              </Card>
-            </Grid>
-          </Grid>
-
-          {/* Win Rate Progress */}
-          <Card
-            sx={{
-              mb: 4,
-              backgroundColor: "rgba(30, 41, 59, 0.8)",
-              backdropFilter: "blur(10px)",
-              border: "1px solid rgba(59, 130, 246, 0.3)",
-            }}
-          >
-            <CardContent>
-              <Typography variant="h6" color="white" gutterBottom>
-                Phân tích kết quả
-              </Typography>
-              <Box sx={{ mt: 2 }}>
-                <Box display="flex" justifyContent="space-between" mb={1}>
-                  <Typography color="#10b981">
-                    Thắng: {stats?.wins || 0}
-                  </Typography>
-                  <Typography color="#ef4444">
-                    Thua: {stats?.losses || 0}
-                  </Typography>
-                  <Typography color="#f59e0b">
-                    Hòa: {stats?.draws || 0}
-                  </Typography>
-                </Box>
-                <LinearProgress
-                  variant="determinate"
-                  value={parseFloat(winRate)}
+                <Box
                   sx={{
+                    position: "absolute",
+                    bottom: 0,
+                    right: 0,
+                    width: 20,
                     height: 20,
-                    borderRadius: 2,
-                    backgroundColor: "#374151",
-                    "& .MuiLinearProgress-bar": {
-                      backgroundColor: "#10b981",
-                      borderRadius: 2,
-                    },
+                    borderRadius: "50%",
+                    bgcolor: statusInfo.color,
+                    border: "2px solid #132f4c",
                   }}
                 />
               </Box>
+              <Box flex={1} minWidth={200}>
+                <Typography variant="h5" color="white" fontWeight="bold">
+                  {profile?.username}
+                </Typography>
+                <Typography variant="body2" color="#94a3b8">{profile?.email}</Typography>
+                <Box display="flex" flexWrap="wrap" alignItems="center" gap={1.5} mt={1}>
+                  <Chip
+                    icon={<Globe size={14} />}
+                    label={profile?.country ? `${getFlag(profile.country)} ${profile.country}` : "Chưa đặt"}
+                    size="small"
+                    sx={{ backgroundColor: "rgba(37,99,235,0.2)", color: "#94a3b8" }}
+                  />
+                  <Chip
+                    icon={<Calendar size={14} />}
+                    label={profile?.created_at ? `Tham gia: ${formatDate(profile.created_at)}` : ""}
+                    size="small"
+                    sx={{ backgroundColor: "rgba(37,99,235,0.2)", color: "#94a3b8" }}
+                  />
+                  <Chip
+                    icon={<Activity size={14} />}
+                    label={statusInfo.text}
+                    size="small"
+                    sx={{ backgroundColor: statusInfo.color + "30", color: statusInfo.color }}
+                  />
+                </Box>
+              </Box>
+              <Box display="flex" gap={1}>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  startIcon={<Edit3 size={16} />}
+                  onClick={handleOpenEdit}
+                  sx={{ borderColor: "#2563eb", color: "#2563eb" }}
+                >
+                  Sửa hồ sơ
+                </Button>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  startIcon={<Lock size={16} />}
+                  onClick={handleOpenPassword}
+                  sx={{ borderColor: "#94a3b8", color: "#94a3b8" }}
+                >
+                  Đổi mật khẩu
+                </Button>
+              </Box>
+            </Box>
+          </CardContent>
+        </Card>
+
+        {/* ELO theo loại */}
+        <Card sx={{ mb: 2, backgroundColor: "#132f4c", border: "1px solid rgba(37,99,235,0.2)", borderRadius: 2 }}>
+          <CardContent sx={{ p: 2 }}>
+            <Typography variant="subtitle1" color="#2563eb" fontWeight="bold" gutterBottom>
+              ELO theo thể loại
+            </Typography>
+            <Grid container spacing={2}>
+              {[
+                { key: "classical_rating", label: "Classical" },
+                { key: "rapid_rating", label: "Rapid" },
+                { key: "blitz_rating", label: "Blitz" },
+                { key: "bullet_rating", label: "Bullet" },
+              ].map(({ key, label }) => (
+                <Grid item xs={6} sm={3} key={key}>
+                  <Box sx={{ p: 1.5, borderRadius: 1, bgcolor: "rgba(0,0,0,0.2)", textAlign: "center" }}>
+                    <Typography variant="caption" color="#94a3b8">{label}</Typography>
+                    <Typography variant="h6" color="white" fontWeight="bold">
+                      {stats?.[key] ?? 1200}
+                    </Typography>
+                  </Box>
+                </Grid>
+              ))}
+            </Grid>
+          </CardContent>
+        </Card>
+
+        {/* Biểu đồ ELO (đơn giản) */}
+        {chartData.length > 0 && (
+          <Card sx={{ mb: 2, backgroundColor: "#132f4c", border: "1px solid rgba(37,99,235,0.2)", borderRadius: 2 }}>
+            <CardContent sx={{ p: 2 }}>
+              <Typography variant="subtitle1" color="#2563eb" fontWeight="bold" gutterBottom>
+                Diễn biến ELO
+              </Typography>
+              <Box sx={{ height: 120, display: "flex", alignItems: "flex-end", gap: 0.5 }}>
+                {chartData.slice(-20).map((r, i) => {
+                  const v = r.rating_after || 1200;
+                  const pct = ((v - minRating) / (maxRating - minRating || 1)) * 80 + 10;
+                  return (
+                    <Box
+                      key={i}
+                      sx={{
+                        flex: 1,
+                        height: `${pct}%`,
+                        minHeight: 4,
+                        borderRadius: 0.5,
+                        bgcolor: "#2563eb",
+                      }}
+                      title={`${r.rating_after} - ${r.date}`}
+                    />
+                  );
+                })}
+              </Box>
             </CardContent>
           </Card>
+        )}
 
-          {/* Game History */}
-          <Card
-            sx={{
-              backgroundColor: "rgba(30, 41, 59, 0.8)",
-              backdropFilter: "blur(10px)",
-              border: "1px solid rgba(59, 130, 246, 0.3)",
-            }}
-          >
-            <CardContent>
-              <Box display="flex" alignItems="center" gap={2} mb={3}>
-                <Clock size={24} color="#3b82f6" />
-                <Typography variant="h5" color="white" fontWeight="bold">
-                  Lịch sử trận đấu
-                </Typography>
-              </Box>
+        {/* Thống kê: Tổng, Thắng, Thua, Hòa, Tỷ lệ, Thời gian TB, Chuỗi thắng */}
+        <Grid container spacing={2} sx={{ mb: 2 }}>
+          {[
+            { label: "Tổng trận", value: stats?.total_games ?? 0, icon: <List size={20} /> },
+            { label: "Thắng", value: stats?.wins ?? 0, color: "#10b981", icon: <Trophy size={20} /> },
+            { label: "Thua", value: stats?.losses ?? 0, color: "#ef4444", icon: <Target size={20} /> },
+            { label: "Hòa", value: stats?.draws ?? 0, color: "#f59e0b", icon: <TrendingUp size={20} /> },
+            { label: "Tỷ lệ thắng", value: `${winRate}%`, icon: <Award size={20} /> },
+            { label: "TG trung bình", value: formatTime(stats?.avg_time), icon: <Clock size={20} /> },
+            { label: "Chuỗi thắng dài nhất", value: stats?.best_streak ?? 0, icon: <Trophy size={20} /> },
+          ].map((item, i) => (
+            <Grid item xs={6} sm={4} md={2} key={i}>
+              <Card sx={{ backgroundColor: "#132f4c", border: "1px solid rgba(37,99,235,0.2)", borderRadius: 2 }}>
+                <CardContent sx={{ p: 1.5, "&:last-child": { pb: 1.5 } }}>
+                  <Box display="flex" alignItems="center" gap={0.5} color={item.color || "#94a3b8"}>
+                    {item.icon}
+                    <Typography variant="caption" color="#94a3b8">{item.label}</Typography>
+                  </Box>
+                  <Typography variant="h6" color="white" fontWeight="bold">
+                    {item.value}
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+          ))}
+        </Grid>
 
-              {history.length === 0 ? (
-                <Typography color="#94a3b8" textAlign="center" py={4}>
-                  Chưa có trận đấu nào
-                </Typography>
-              ) : (
-                <TableContainer
-                  component={Paper}
-                  sx={{ backgroundColor: "transparent" }}
-                >
-                  <Table>
-                    <TableHead>
-                      <TableRow>
-                        <TableCell
-                          sx={{ color: "#94a3b8", fontWeight: "bold" }}
-                        >
-                          Ngày
-                        </TableCell>
-                        <TableCell
-                          sx={{ color: "#94a3b8", fontWeight: "bold" }}
-                        >
-                          Đối thủ
-                        </TableCell>
-                        <TableCell
-                          sx={{ color: "#94a3b8", fontWeight: "bold" }}
-                        >
-                          Độ khó
-                        </TableCell>
-                        <TableCell
-                          sx={{ color: "#94a3b8", fontWeight: "bold" }}
-                        >
-                          Kết quả
-                        </TableCell>
-                        <TableCell
-                          sx={{ color: "#94a3b8", fontWeight: "bold" }}
-                        >
-                          Nước đi
-                        </TableCell>
-                        <TableCell
-                          sx={{ color: "#94a3b8", fontWeight: "bold" }}
-                        >
-                          Thời gian
+        {/* Danh sách ván đã chơi */}
+        <Card sx={{ backgroundColor: "#132f4c", border: "1px solid rgba(37,99,235,0.2)", borderRadius: 2 }}>
+          <CardContent>
+            <Typography variant="subtitle1" color="#2563eb" fontWeight="bold" gutterBottom>
+              Các ván đã chơi
+            </Typography>
+            {games.length === 0 ? (
+              <Typography color="#94a3b8" py={2}>Chưa có ván nào.</Typography>
+            ) : (
+              <TableContainer component={Paper} sx={{ backgroundColor: "transparent" }}>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell sx={{ color: "#94a3b8", fontWeight: 600 }}>Ngày</TableCell>
+                      <TableCell sx={{ color: "#94a3b8", fontWeight: 600 }}>Đối thủ</TableCell>
+                      <TableCell sx={{ color: "#94a3b8", fontWeight: 600 }}>Kết quả</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {games.slice(0, 20).map((g, i) => (
+                      <TableRow key={i}>
+                        <TableCell sx={{ color: "#e2e8f0" }}>{formatDate(g.created_at)}</TableCell>
+                        <TableCell sx={{ color: "#e2e8f0" }}>{g.opponent || "—"}</TableCell>
+                        <TableCell>
+                          <Chip
+                            size="small"
+                            label={g.result === "win" ? "Thắng" : g.result === "loss" ? "Thua" : "Hòa"}
+                            sx={{
+                              bgcolor: g.result === "win" ? "rgba(16,185,129,0.2)" : g.result === "loss" ? "rgba(239,68,68,0.2)" : "rgba(245,158,11,0.2)",
+                              color: g.result === "win" ? "#10b981" : g.result === "loss" ? "#ef4444" : "#f59e0b",
+                            }}
+                          />
                         </TableCell>
                       </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {history.map((game, index) => (
-                        <TableRow key={index}>
-                          <TableCell sx={{ color: "white" }}>
-                            {formatDate(game.created_at)}
-                          </TableCell>
-                          <TableCell sx={{ color: "white" }}>
-                            {game.opponent_type === "AI"
-                              ? "🤖 AI"
-                              : "👥 Người chơi"}
-                          </TableCell>
-                          <TableCell>
-                            <Chip
-                              label={game.difficulty}
-                              size="small"
-                              sx={{
-                                backgroundColor:
-                                  game.difficulty === "easy"
-                                    ? "rgba(16, 185, 129, 0.2)"
-                                    : game.difficulty === "medium"
-                                    ? "rgba(59, 130, 246, 0.2)"
-                                    : "rgba(239, 68, 68, 0.2)",
-                                color:
-                                  game.difficulty === "easy"
-                                    ? "#10b981"
-                                    : game.difficulty === "medium"
-                                    ? "#3b82f6"
-                                    : "#ef4444",
-                              }}
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <Chip
-                              label={
-                                game.result === "win"
-                                  ? "Thắng"
-                                  : game.result === "loss"
-                                  ? "Thua"
-                                  : "Hòa"
-                              }
-                              size="small"
-                              sx={{
-                                backgroundColor:
-                                  game.result === "win"
-                                    ? "rgba(16, 185, 129, 0.2)"
-                                    : game.result === "loss"
-                                    ? "rgba(239, 68, 68, 0.2)"
-                                    : "rgba(245, 158, 11, 0.2)",
-                                color:
-                                  game.result === "win"
-                                    ? "#10b981"
-                                    : game.result === "loss"
-                                    ? "#ef4444"
-                                    : "#f59e0b",
-                                fontWeight: "bold",
-                              }}
-                            />
-                          </TableCell>
-                          <TableCell sx={{ color: "white" }}>
-                            {game.moves_count}
-                          </TableCell>
-                          <TableCell sx={{ color: "white" }}>
-                            {formatTime(game.time_spent || 0)}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
-              )}
-            </CardContent>
-          </Card>
-        </motion.div>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            )}
+          </CardContent>
+        </Card>
       </Container>
+
+      {/* Dialog sửa hồ sơ */}
+      <Dialog open={editOpen} onClose={() => setEditOpen(false)} PaperProps={{ sx: { bgcolor: "#132f4c", borderRadius: 2 } }}>
+        <DialogTitle sx={{ color: "#fff" }}>Sửa hồ sơ</DialogTitle>
+        <DialogContent>
+          <TextField
+            fullWidth
+            label="Username (không trùng)"
+            value={editForm.username}
+            onChange={(e) => setEditForm((f) => ({ ...f, username: e.target.value }))}
+            sx={{ mt: 1, "& .MuiOutlinedInput-root": { color: "#fff" }, "& .MuiInputLabel-root": { color: "#94a3b8" } }}
+          />
+          <TextField
+            fullWidth
+            label="URL ảnh đại diện"
+            value={editForm.avatar}
+            onChange={(e) => setEditForm((f) => ({ ...f, avatar: e.target.value }))}
+            sx={{ mt: 2, "& .MuiOutlinedInput-root": { color: "#fff" }, "& .MuiInputLabel-root": { color: "#94a3b8" } }}
+          />
+          <TextField
+            fullWidth
+            label="Quốc gia (VD: VN, US)"
+            value={editForm.country}
+            onChange={(e) => setEditForm((f) => ({ ...f, country: e.target.value }))}
+            sx={{ mt: 2, "& .MuiOutlinedInput-root": { color: "#fff" }, "& .MuiInputLabel-root": { color: "#94a3b8" } }}
+          />
+        </DialogContent>
+        <DialogActions sx={{ borderTop: "1px solid rgba(255,255,255,0.1)", p: 2 }}>
+          <Button onClick={() => setEditOpen(false)} sx={{ color: "#94a3b8" }}>Hủy</Button>
+          <Button variant="contained" onClick={handleSaveProfile} sx={{ bgcolor: "#2563eb" }}>Lưu</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Dialog đổi mật khẩu */}
+      <Dialog open={passwordOpen} onClose={() => setPasswordOpen(false)} PaperProps={{ sx: { bgcolor: "#132f4c", borderRadius: 2 } }}>
+        <DialogTitle sx={{ color: "#fff" }}>Đổi mật khẩu</DialogTitle>
+        <DialogContent>
+          <TextField
+            fullWidth
+            type="password"
+            label="Mật khẩu hiện tại"
+            value={passwordForm.currentPassword}
+            onChange={(e) => setPasswordForm((f) => ({ ...f, currentPassword: e.target.value }))}
+            sx={{ mt: 1, "& .MuiOutlinedInput-root": { color: "#fff" }, "& .MuiInputLabel-root": { color: "#94a3b8" } }}
+          />
+          <TextField
+            fullWidth
+            type="password"
+            label="Mật khẩu mới"
+            value={passwordForm.newPassword}
+            onChange={(e) => setPasswordForm((f) => ({ ...f, newPassword: e.target.value }))}
+            sx={{ mt: 2, "& .MuiOutlinedInput-root": { color: "#fff" }, "& .MuiInputLabel-root": { color: "#94a3b8" } }}
+          />
+          <TextField
+            fullWidth
+            type="password"
+            label="Xác nhận mật khẩu mới"
+            value={passwordForm.confirmPassword}
+            onChange={(e) => setPasswordForm((f) => ({ ...f, confirmPassword: e.target.value }))}
+            sx={{ mt: 2, "& .MuiOutlinedInput-root": { color: "#fff" }, "& .MuiInputLabel-root": { color: "#94a3b8" } }}
+          />
+        </DialogContent>
+        <DialogActions sx={{ borderTop: "1px solid rgba(255,255,255,0.1)", p: 2 }}>
+          <Button onClick={() => setPasswordOpen(false)} sx={{ color: "#94a3b8" }}>Hủy</Button>
+          <Button variant="contained" onClick={handleChangePassword} sx={{ bgcolor: "#2563eb" }}>Đổi mật khẩu</Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

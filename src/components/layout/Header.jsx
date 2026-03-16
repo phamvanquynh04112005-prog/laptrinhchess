@@ -18,14 +18,14 @@ import {
   Home,
   Cpu,
   Users,
-  Puzzle,
-  BarChart,
   Crown,
   Menu as MenuIcon,
   LogOut,
   User,
   LogIn,
   UserPlus,
+  BookOpen,
+  Trophy,
 } from "lucide-react";
 import { motion } from "framer-motion";
 
@@ -49,8 +49,9 @@ const Header = () => {
     { label: "Trang chủ", path: "/", icon: <Home size={20} /> },
     { label: "Chơi AI", path: "/play", icon: <Cpu size={20} /> },
     { label: "2 Người", path: "/multiplayer", icon: <Users size={20} /> },
-    { label: "Câu đố", path: "/puzzles", icon: <Puzzle size={20} /> },
-    { label: "Phân tích", path: "/analysis", icon: <BarChart size={20} /> },
+    { label: "Online", path: "/online", icon: <Users size={20} /> },
+    { label: "Khai cuộc", path: "/learning/openings", icon: <BookOpen size={20} /> },
+    { label: "Tàn cuộc", path: "/learning/endgames", icon: <Trophy size={20} /> },
   ];
 
   const handleMenuOpen = (event) => {
@@ -126,18 +127,14 @@ const Header = () => {
                   },
                 }}
               >
-                <Crown size={36} color="#3b82f6" />
+                <Crown size={32} color="#2563eb" />
               </Box>
               <Typography
-                variant="h5"
+                variant="h6"
                 sx={{
-                  fontWeight: 800,
-                  background:
-                    "linear-gradient(90deg, #3b82f6 0%, #60a5fa 100%)",
-                  WebkitBackgroundClip: "text",
-                  WebkitTextFillColor: "transparent",
-                  letterSpacing: "-0.5px",
-                  textShadow: "0 2px 8px rgba(59, 130, 246, 0.3)",
+                  fontWeight: 700,
+                  color: "#2563eb",
+                  letterSpacing: "-0.3px",
                 }}
               >
                 ChessMaster
@@ -221,21 +218,22 @@ const Header = () => {
                     onClick={handleUserMenuOpen}
                     sx={{
                       ml: 2,
-                      border: "2px solid #3b82f6",
+                      border: "2px solid #2563eb",
                       "&:hover": {
-                        backgroundColor: "rgba(59, 130, 246, 0.1)",
+                        backgroundColor: "rgba(37, 99, 235, 0.1)",
                       },
                     }}
                   >
                     <Avatar
+                      src={user.avatar}
                       sx={{
-                        bgcolor: "#3b82f6",
+                        bgcolor: "#2563eb",
                         width: 36,
                         height: 36,
                         fontSize: "1rem",
                       }}
                     >
-                      {user.username[0].toUpperCase()}
+                      {user.username?.[0]?.toUpperCase()}
                     </Avatar>
                   </IconButton>
                   <Menu
