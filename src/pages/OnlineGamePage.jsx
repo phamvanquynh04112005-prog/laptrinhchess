@@ -20,6 +20,7 @@ import { io } from "socket.io-client";
 import { motion } from "framer-motion";
 import { Flag, X } from "lucide-react";
 import Header from "../components/layout/Header";
+import { matchmakingAPI } from "../utils/api";
 import {
   getValidMoves,
   makeMove,
@@ -558,35 +559,91 @@ const OnlineGamePage = () => {
     return fen.slice(0, -1) + " w KQkq - 0 1";
   };
 
-  const handleResign = () => {
-    if (socket && user && game) {
-      socket.emit("resign", { gameId: game.id, userId: user.id });
-      setShowResignDialog(false);
+  const handleResign = async () => {
+    if (!user || !game) return;
+
+    setShowResignDialog(false);
+    setSnackbar({
+      open: true,
+      message: "Đang xử lý đầu hàng...",
+      severity: "info",
+    });
+
+    const result = await matchmakingAPI.resignGame(game.id);
+
+    if (!result?.success) {
       setSnackbar({
         open: true,
-        message: "Đang xử lý đầu hàng...",
-        severity: "info",
+        message: result?.message || "Không thể đầu hàng lúc này",
+        severity: "error",
       });
+      return;
     }
+
+    const winnerId =
+      result.winnerId ||
+      (game.white_player_id === user.id
+        ? game.black_player_id
+        : game.white_player_id);
+
+    setGame((prev) =>
+      prev
+        ? {
+            ...prev,
+            status: "finished",
+            result: "resignation",
+            winner_id: winnerId,
+          }
+        : prev,
+    );
+    openEndDialog({ result: "resignation", winnerId, resignedBy: user.id });
+    loadGame();
   };
 
-  const handleOfferDraw = () => {
-    if (socket && user && game) {
-      socket.emit("offer-draw", { gameId: game.id, userId: user.id });
-      setShowDrawOfferDialog(false);
-    }
-  };
+  const handleOfferDraw = async () => {
+    if (!socket || !user || !game) return;
 
-  const handleAcceptDraw = () => {
-    if (socket && user && game) {
-      socket.emit("accept-draw", { gameId: game.id, userId: user.id });
-      setDrawOfferedByOpponent(false);
+    const result = await matchmakingAPI.offerDraw(game.id);
+    setShowDrawOfferDialog(false);
+
+    if (!result?.success) {
       setSnackbar({
         open: true,
-        message: "Đang xử lý kết quả hòa...",
-        severity: "info",
+        message: result?.message || "Không thể gửi đề nghị hòa",
+        severity: "error",
       });
+      return;
     }
+
+    socket.emit("offer-draw", { gameId: game.id, userId: user.id });
+  };
+
+  const handleAcceptDraw = async () => {
+    if (!socket || !user || !game) return;
+
+    setDrawOfferedByOpponent(false);
+    setSnackbar({
+      open: true,
+      message: "Đang xử lý kết quả hòa...",
+      severity: "info",
+    });
+
+    const result = await matchmakingAPI.acceptDraw(game.id);
+
+    if (!result?.success) {
+      setSnackbar({
+        open: true,
+        message: result?.message || "Không thể xác nhận hòa",
+        severity: "error",
+      });
+      return;
+    }
+
+    setGame((prev) =>
+      prev ? { ...prev, status: "finished", result: "draw" } : prev,
+    );
+    openEndDialog({ result: "draw", winnerId: null, resignedBy: null });
+    loadGame();
   };
 
   const handleDeclineDraw = () => {

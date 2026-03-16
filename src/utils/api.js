@@ -505,6 +505,66 @@ export const matchmakingAPI = {
     }
   },
 
+  resignGame: async (gameId) => {
+    try {
+      const response = await fetch(
+        `${API_URL}/matchmaking/games/${gameId}/resign`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...getAuthHeader(),
+          },
+        },
+      );
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error("Resign game error:", error);
+      return { success: false, message: "Network error" };
+    }
+  },
+
+  offerDraw: async (gameId) => {
+    try {
+      const response = await fetch(
+        `${API_URL}/matchmaking/games/${gameId}/offer-draw`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...getAuthHeader(),
+          },
+        },
+      );
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error("Offer draw error:", error);
+      return { success: false, message: "Network error" };
+    }
+  },
+
+  acceptDraw: async (gameId) => {
+    try {
+      const response = await fetch(
+        `${API_URL}/matchmaking/games/${gameId}/accept-draw`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...getAuthHeader(),
+          },
+        },
+      );
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error("Accept draw error:", error);
+      return { success: false, message: "Network error" };
+    }
+  },
+
   getLeaderboard: async (timeControl = "rapid", limit = 100) => {
     try {
       const response = await fetch(
