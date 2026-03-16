@@ -143,7 +143,14 @@ const getPawnMoves = (board, row, col, gameId = "default") => {
         state.enPassantTarget.row === newRow &&
         state.enPassantTarget.col === newCol
       ) {
-        moves.push([newRow, newCol]);
+        const adjacentPawn = board[row][newCol];
+        if (
+          adjacentPawn &&
+          adjacentPawn.toLowerCase() === "p" &&
+          isWhitePiece(adjacentPawn) !== isWhite
+        ) {
+          moves.push([newRow, newCol]);
+        }
       }
     }
   }
