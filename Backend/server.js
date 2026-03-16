@@ -3,6 +3,7 @@ const cors = require("cors");
 const http = require("http");
 const os = require("os");
 const { Server } = require("socket.io");
+const { initDatabase } = require("./config/database");
 
 require("dotenv").config();
 
@@ -73,23 +74,36 @@ app.use((req, res) => {
 
 const PORT = process.env.PORT || 5000;
 
-server.listen(PORT, "0.0.0.0", () => {
-  console.log(`Server running on port ${PORT}`);
-  console.log(`Local:   http://localhost:${PORT}`);
+const startServer = async () => {
+  try {
+    await initDatabase();
 
-  const networkInterfaces = os.networkInterfaces();
+    server.listen(PORT, "0.0.0.0", () => {
+      console.log(`Server running on port ${PORT}`);
+      console.log(`Local:   http://localhost:${PORT}`);
 
-  Object.keys(networkInterfaces).forEach((interfaceName) => {
-    networkInterfaces[interfaceName].forEach((iface) => {
-      if (iface.family === "IPv4" && !iface.internal) {
-        console.log(`Network: http://${iface.address}:${PORT}`);
-      }
+      const networkInterfaces = os.networkInterfaces();
+
+      Object.keys(networkInterfaces).forEach((interfaceName) => {
+        networkInterfaces[interfaceName].forEach((iface) => {
+          if (iface.family === "IPv4" && !iface.internal) {
+            console.log(`Network: http://${iface.address}:${PORT}`);
+          }
+        });
+      });
+
+      console.log("Socket.IO ready for connections");
+      console.log(
+        `CORS enabled for: ${Array.isArray(corsOrigin) ? corsOrigin.join(", ") : corsOrigin}`,
+      );
     });
-  });
+  } catch (error) {
+    console.error("Failed to start server:", error);
+    process.exit(1);
+  }
+};
 
-  console.log("Socket.IO ready for connections");
-  console.log(`CORS enabled for: ${Array.isArray(corsOrigin) ? corsOrigin.join(", ") : corsOrigin}`);
-});
+startServer();
 
 process.on("SIGTERM", () => {
   console.log("SIGTERM signal received: closing HTTP server");
