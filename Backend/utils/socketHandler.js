@@ -503,12 +503,19 @@ const setupSocketHandlers = (io) => {
 
       if (socket.userId) {
         console.log(`   User ID: ${socket.userId}`);
-        connectedUsers.delete(socket.userId);
-        db.query("DELETE FROM matchmaking_queue WHERE user_id = ?", [
-          socket.userId,
-        ])
-          .then(() => console.log(`   ✅ Removed from queue`))
-          .catch((err) => console.error(`   ❌ Queue cleanup error:`, err));
+        const currentSocketId = connectedUsers.get(socket.userId);
+        if (currentSocketId === socket.id) {
+          connectedUsers.delete(socket.userId);
+          db.query("DELETE FROM matchmaking_queue WHERE user_id = ?", [
+            socket.userId,
+          ])
+            .then(() => console.log(`   ✅ Removed from queue`))
+            .catch((err) => console.error(`   ❌ Queue cleanup error:`, err));
+        } else {
+          console.log(
+            `   Skipping cleanup because user has a newer socket: ${currentSocketId}`,
+          );
+        }
       }
     });
   });
