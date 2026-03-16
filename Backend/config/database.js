@@ -133,6 +133,24 @@ const initDatabase = async () => {
       }
     };
 
+    const modifyTableColumnIfPossible = async (
+      tableName,
+      columnName,
+      columnDefinition,
+    ) => {
+      try {
+        await pool.query(
+          `ALTER TABLE ${tableName} MODIFY COLUMN ${columnName} ${columnDefinition}`,
+        );
+        console.log(`Updated column ${tableName}.${columnName}`);
+      } catch (e) {
+        console.warn(
+          `Warning: Could not update column ${tableName}.${columnName}:`,
+          e.message,
+        );
+      }
+    };
+
     // Bảng games
     await pool.query(`
       CREATE TABLE IF NOT EXISTS games (
@@ -151,6 +169,7 @@ const initDatabase = async () => {
         INDEX idx_created_at (created_at)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     `);
+    await modifyTableColumnIfPossible("games", "result", "VARCHAR(20) NOT NULL");
 
     // Bảng game_analysis
     await pool.query(`
@@ -323,6 +342,11 @@ const initDatabase = async () => {
         INDEX idx_status (status)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     `);
+    await modifyTableColumnIfPossible(
+      "online_games",
+      "result",
+      "VARCHAR(20) DEFAULT NULL",
+    );
 
     // Bảng tournaments - Giải đấu
     await pool.query(`
@@ -394,6 +418,11 @@ const initDatabase = async () => {
         INDEX idx_status (status)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     `);
+    await modifyTableColumnIfPossible(
+      "tournament_matches",
+      "result",
+      "VARCHAR(20) DEFAULT NULL",
+    );
 
     // Bảng rating_history - Lịch sử rating
     await pool.query(`
@@ -417,6 +446,11 @@ const initDatabase = async () => {
         INDEX idx_created_at (created_at)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     `);
+    await modifyTableColumnIfPossible(
+      "rating_history",
+      "game_result",
+      "VARCHAR(20) NOT NULL",
+    );
 
     // Bảng user_stats - Thống kê chi tiết
     await pool.query(`
