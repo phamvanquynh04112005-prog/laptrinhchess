@@ -113,6 +113,26 @@ const initDatabase = async () => {
     await addColumnIfNotExists("country", "VARCHAR(100) DEFAULT NULL");
     await addColumnIfNotExists("last_seen", "DATETIME DEFAULT NULL");
 
+    const addTableColumnIfNotExists = async (
+      tableName,
+      columnName,
+      columnDefinition,
+    ) => {
+      try {
+        await pool.query(
+          `ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${columnDefinition}`,
+        );
+        console.log(`Added column ${tableName}.${columnName}`);
+      } catch (e) {
+        if (e.code !== "ER_DUP_FIELDNAME") {
+          console.warn(
+            `Warning: Could not add column ${tableName}.${columnName}:`,
+            e.message,
+          );
+        }
+      }
+    };
+
     // Bảng games
     await pool.query(`
       CREATE TABLE IF NOT EXISTS games (
@@ -260,13 +280,19 @@ const initDatabase = async () => {
         time_control VARCHAR(20) NOT NULL,
         rating INT NOT NULL,
         status VARCHAR(20) DEFAULT 'waiting',
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        joined_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
         INDEX idx_status (status),
         INDEX idx_time_control (time_control),
         INDEX idx_rating (rating)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     `);
+
+    await addTableColumnIfNotExists(
+      "matchmaking_queue",
+      "joined_at",
+      "DATETIME DEFAULT CURRENT_TIMESTAMP",
+    );
 
     // Bảng online_games - Trận đấu trực tuyến
     await pool.query(`
