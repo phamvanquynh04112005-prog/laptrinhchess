@@ -562,22 +562,11 @@ const OnlineGamePage = () => {
     if (socket && user && game) {
       socket.emit("resign", { gameId: game.id, userId: user.id });
       setShowResignDialog(false);
-      const winnerId =
-        game.white_player_id === user.id
-          ? game.black_player_id
-          : game.white_player_id;
-      setGame((prev) =>
-        prev
-          ? {
-              ...prev,
-              status: "finished",
-              result: "resignation",
-              winner_id: winnerId,
-            }
-          : prev,
-      );
-      openEndDialog({ result: "resignation", winnerId, resignedBy: user.id });
-      setTimeout(() => loadGame(), 500);
+      setSnackbar({
+        open: true,
+        message: "Đang xử lý đầu hàng...",
+        severity: "info",
+      });
     }
   };
 
@@ -592,11 +581,11 @@ const OnlineGamePage = () => {
     if (socket && user && game) {
       socket.emit("accept-draw", { gameId: game.id, userId: user.id });
       setDrawOfferedByOpponent(false);
-      setGame((prev) =>
-        prev ? { ...prev, status: "finished", result: "draw" } : prev,
-      );
-      openEndDialog({ result: "draw", winnerId: null, resignedBy: null });
-      setTimeout(() => loadGame(), 500);
+      setSnackbar({
+        open: true,
+        message: "Đang xử lý kết quả hòa...",
+        severity: "info",
+      });
     }
   };
 

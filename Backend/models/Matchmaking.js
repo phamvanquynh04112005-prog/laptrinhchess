@@ -367,6 +367,19 @@ const Matchmaking = {
         throw new Error("Game not found");
       }
 
+      await db.query(
+        `INSERT IGNORE INTO user_stats
+         (user_id, bullet_rating, blitz_rating, rapid_rating, classical_rating)
+         VALUES (?, 1500, 1500, 1500, 1500)`,
+        [game.white_player_id],
+      );
+      await db.query(
+        `INSERT IGNORE INTO user_stats
+         (user_id, bullet_rating, blitz_rating, rapid_rating, classical_rating)
+         VALUES (?, 1500, 1500, 1500, 1500)`,
+        [game.black_player_id],
+      );
+
       // Update game status
       await db.query(
         "UPDATE online_games SET status = 'finished', result = ?, winner_id = ?, finished_at = NOW() WHERE id = ?",
@@ -385,6 +398,7 @@ const Matchmaking = {
           loserId,
           game.time_control,
           "win",
+          gameId,
         );
       } else {
         const whiteRatingChange = await Rating.updateRating(
@@ -392,12 +406,14 @@ const Matchmaking = {
           game.black_player_id,
           game.time_control,
           "draw",
+          gameId,
         );
         const blackRatingChange = await Rating.updateRating(
           game.black_player_id,
           game.white_player_id,
           game.time_control,
           "draw",
+          gameId,
         );
 
         ratingChanges = {

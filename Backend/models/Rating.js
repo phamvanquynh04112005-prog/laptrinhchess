@@ -16,7 +16,7 @@ const Rating = {
   },
 
   // Update rating after a game (supports win, loss, and draw)
-  async updateRating(playerId, opponentId, timeControl, result) {
+  async updateRating(playerId, opponentId, timeControl, result, gameId = null) {
     try {
       console.log(`\n📊 UPDATING RATING:`);
       console.log(`   Player: ${playerId}, Opponent: ${opponentId}`);
@@ -24,7 +24,7 @@ const Rating = {
 
       // Get current ratings
       const players = await db.query(
-        `SELECT id, ${timeControl}_rating as rating, total_games 
+        `SELECT id, ${timeControl}_rating as rating
          FROM users WHERE id IN (?, ?)`,
         [playerId, opponentId],
       );
@@ -83,19 +83,25 @@ const Rating = {
         `UPDATE users SET ${timeControl}_rating = ? WHERE id = ?`,
         [newRating, playerId],
       );
+      await db.query(
+        `UPDATE user_stats SET ${timeControl}_rating = ? WHERE user_id = ?`,
+        [newRating, playerId],
+      );
 
       // Save to rating history
       await db.query(
         `INSERT INTO rating_history 
-         (user_id, time_control, old_rating, new_rating, rating_change, opponent_id, result, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, NOW())`,
+         (user_id, game_id, time_control, rating_before, rating_after, rating_change, opponent_id, opponent_rating, game_result, game_type, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'online', NOW())`,
         [
           playerId,
+          gameId,
           timeControl,
           playerRating,
           newRating,
           ratingChange,
           opponentId,
+          opponentRating,
           result,
         ],
       );
@@ -141,16 +147,22 @@ const Rating = {
           [opponentNewRating, opponentId],
         );
         await db.query(
+          `UPDATE user_stats SET ${timeControl}_rating = ? WHERE user_id = ?`,
+          [opponentNewRating, opponentId],
+        );
+        await db.query(
           `INSERT INTO rating_history 
-           (user_id, time_control, old_rating, new_rating, rating_change, opponent_id, result, created_at)
-           VALUES (?, ?, ?, ?, ?, ?, 'loss', NOW())`,
+           (user_id, game_id, time_control, rating_before, rating_after, rating_change, opponent_id, opponent_rating, game_result, game_type, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'loss', 'online', NOW())`,
           [
             opponentId,
+            gameId,
             timeControl,
             opponentRating,
             opponentNewRating,
             opponentRatingChange,
             playerId,
+            playerRating,
           ],
         );
 
